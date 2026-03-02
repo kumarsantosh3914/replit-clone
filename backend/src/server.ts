@@ -6,8 +6,45 @@ import v2Router from './routers/v2/index.router';
 import { appErrorHandler, genericErrorHandler } from './middlewares/error.middleware';
 import { attachCorrelationIdMiddleware } from './middlewares/correlation.middleware';
 import logger from './config/logger.config';
+import { createServer } from 'http';
+import { Server, Socket } from 'socket.io';
+import chokidar from 'chokidar';
+import { registerEditorHandlers } from './socketHandlers/editorHandler';
 
 const app: Express = express();
+const server = createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"],
+    }
+});
+
+const editorNamespace = io.of('/editor');
+editorNamespace.on("connection", (socket: Socket) => {
+    console.log("editor connected");
+
+    // somehow we will get the project id from the client
+    let projectId = socket.handshake.query['projectId'];
+    console.log("Project id received after connection", projectId);
+
+    if (projectId) {
+        var watcher = chokidar.watch(`./projects/${projectId}`, {
+            ignored: (path) => path.includes("node_modules"),
+            persistent: true, // keeps the watcher in running state till the time app is running
+            awaitWriteFinish: {
+                stabilityThreshold: 2000, // Ensures stability of files before triggering event
+            },
+            ignoreInitial: true, //. Ignores the intial files in the directory
+        });
+
+        watcher.on("all", (event, path) => {
+            console.log(event, path);
+        });
+    }
+
+    registerEditorHandlers(socket);
+})
 
 // Middleware to parse JSON request bodies
 app.use(express.json());
@@ -21,6 +58,6 @@ app.use(appErrorHandler);
 // Middleware to handle errors
 app.use(genericErrorHandler);
 
-app.listen(serverConfig.PORT, async () => {
+server.listen(serverConfig.PORT, async () => {
     logger.info(`Server is running on http://localhost:${serverConfig.PORT}`);
 })

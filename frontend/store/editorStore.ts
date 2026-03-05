@@ -15,6 +15,7 @@ export const useEditorStore = create<EditorState>((set) => ({
     setActiveFile: (path) => set({ activeFilePath: path }),
 
     addFile: (path) => set((state) => {
+        if (!path) return state;
         // If the file isn't open yet, add it to the array
         if (!state.openFiles.includes(path)) {
             return {

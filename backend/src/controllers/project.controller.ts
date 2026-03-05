@@ -3,6 +3,7 @@ import child_process from "child_process";
 import { NextFunction, Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs/promises";
+import directoryTree from "directory-tree";
 
 const execPromisified = util.promisify(child_process.exec);
 
@@ -26,5 +27,21 @@ export const createProjectController = async (req: Request, res: Response, next:
         });
     } catch (error) {
         next(error); // forwards to your genericErrorHandler middleware
+    }
+}
+
+export const getProjectTreeController = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { projectId } = req.params;
+        // Scan the directory for the specific project
+        const tree = directoryTree(`./projects/${projectId}`);
+
+        res.status(200).json({
+            message: "Successfully fetched the tree",
+            success: true,
+            data: tree,
+        });
+    } catch (error) {
+        next(error);
     }
 }

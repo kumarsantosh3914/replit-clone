@@ -15,6 +15,7 @@ export const EditorTopBar = () => {
             {/* Scrollable Tabs Container */}
             <div className="flex items-center overflow-x-auto flex-1 no-scrollbar h-[38px]">
                 {openFiles.map((filepath) => {
+                    if (!filepath) return null;
                     // Extract just the filename for the tab display
                     const filename = filepath.split('/').pop() || filepath;
 

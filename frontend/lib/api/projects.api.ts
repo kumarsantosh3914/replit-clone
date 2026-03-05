@@ -11,3 +11,12 @@ export interface CreateProjectResponse {
  */
 export const createProject = () =>
     apiClient.post<CreateProjectResponse>("/api/v1/projects", {});
+
+export interface GetProjectTreeResponse {
+    message: string;
+    success: boolean;
+    data: any;
+}
+
+export const getProjectTree = (projectId: string) =>
+    apiClient.get<GetProjectTreeResponse>(`/api/v1/projects/${projectId}/tree`);

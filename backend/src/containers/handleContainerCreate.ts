@@ -15,6 +15,9 @@ export const handleContainerCreate = async (projectId: any, socket: Socket) => {
             Cmd: ['/bin/bash'],
             Tty: true,
             User: "sandbox",
+            Volumes: {
+                "home/sandbox/app": {}
+            },
             Env: ["HOST=0.0.0.0"],
             ExposedPorts: {
                 "5173/tcp": {}
@@ -34,36 +37,64 @@ export const handleContainerCreate = async (projectId: any, socket: Socket) => {
         });
 
         logger.info(`Container created successfully`, container.id);
-        await container.start();
-        logger.info(`Container started successfully`, container.id);
 
-        // Attach to the container's streams
-        container.attach({ stream: true, stdin: true, stdout: true, stderr: true }, (err, stream) => {
-            if (err || !stream) {
-                logger.error("Error attaching to container stream", err);
+        container.exec({
+            Cmd: ["/bin/bash"],
+            User: "sandbox",
+            AttachStdin: true,
+            AttachStdout: true,
+            AttachStderr: true,
+        }, (err, exec) => {
+            if (err) {
+                logger.error("Error creating exec", err);
                 return;
             }
 
-            logger.info("Attached to container stream");
+            exec?.start({ hijack: true }, (err, stream) => {
+                if (err) {
+                    logger.error("Error starting exec", err);
+                    return;
+                }
 
-            // Handle output from container to socket
-            stream.on("data", (chunk) => {
-                socket.emit("shell-output", chunk.toString());
-            });
-
-            // Handle input from socket to container
-            socket.on("shell-input", (data) => {
-                stream.write(data);
-            });
-
-            // Handle socket disconnect
-            socket.on("disconnect", () => {
-                logger.info("Terminal socket disconnected, stopping container...");
-                container.stop().then(() => container.remove()).catch(err => logger.error("Error cleaning up container", err));
-            });
-        });
-
+                processStream(stream, socket);
+                socket.on("shell-input", (data) => {
+                    logger.info("Shell input received", data);
+                    stream?.write("pwd\n", (err) => {
+                        if (err) {
+                            logger.error("Error writing to stream", err);
+                            return;
+                        } else {
+                            logger.info("Successfully wrote to stream");
+                        }
+                    });
+                })
+            })
+        })
+        await container.start();
+        logger.info(`Container started successfully`, container.id);
     } catch (error) {
         logger.error(`Error creating container`, error);
     }
+}
+
+function processStream(stream: any, socket: Socket) {
+    let buffer = Buffer.from("");
+    stream.on("data", (data: any) => {
+        buffer = Buffer.concat([buffer, data]);
+        logger.info("Stream data received", buffer.toString());
+        socket.emit("shell-output", buffer.toString());
+        buffer = Buffer.from("");
+    })
+
+    stream.on("end", () => {
+        logger.info("Stream ended");
+        socket.emit("shell-output", "\nStream ended");
+    })
+
+    stream.on("error", (err: any) => {
+        logger.error("Stream error", err);
+        socket.emit("shell-output", "\nStream error");
+    })
+
+    logger.info("Stream processed successfully", stream);
 }

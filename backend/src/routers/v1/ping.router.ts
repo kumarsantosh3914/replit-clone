@@ -7,7 +7,7 @@ const pingRouter = express.Router();
 
 pingRouter.get('/', validateRequestBody(pingSchema), pingHandler);
 
-pingRouter.get('/helth', (req, res) => {
+pingRouter.get('/health', (req, res) => {
     res.status(200).json('OK');
 });
 

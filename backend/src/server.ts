@@ -1,5 +1,6 @@
 import express from 'express';
 import { Express } from 'express';
+import cors from 'cors';
 import { serverConfig } from './config';
 import v1Router from './routers/v1/index.router';
 import v2Router from './routers/v2/index.router';
@@ -48,6 +49,9 @@ editorNamespace.on("connection", (socket: Socket) => {
 
 // Middleware to parse JSON request bodies
 app.use(express.json());
+
+// Allow cross-origin requests from the frontend dev server
+app.use(cors({ origin: '*' }));
 
 // Regestering all the routers and their corresponding routes with out app server object.
 app.use(attachCorrelationIdMiddleware);

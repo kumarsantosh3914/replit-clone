@@ -1,64 +1,106 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import { pingServer } from "@/lib/api/ping.api";
+
+type PingStatus = "idle" | "loading" | "success" | "error";
 
 export default function Home() {
+  const [status, setStatus] = useState<PingStatus>("idle");
+  const [message, setMessage] = useState<string>("");
+  const [error, setError] = useState<string>("");
+
+  const ping = async () => {
+    setStatus("loading");
+    setMessage("");
+    setError("");
+
+    const result = await pingServer();
+
+    if (result.error) {
+      setError(result.error);
+      setStatus("error");
+    } else {
+      setMessage(result.data?.message ?? "");
+      setStatus("success");
+    }
+  };
+
+  useEffect(() => {
+    ping();
+  }, []);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="flex min-h-screen items-center justify-center bg-zinc-950 font-sans">
+      <main className="flex flex-col items-center gap-8 text-center px-6">
+        {/* Header */}
+        <div className="flex flex-col items-center gap-2">
+          <h1 className="text-4xl font-bold tracking-tight text-white">
+            Replit Clone – IDE
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-zinc-400 text-sm">
+            Backend health check via{" "}
+            <code className="text-zinc-300 bg-zinc-800 rounded px-1.5 py-0.5 text-xs">
+              GET /api/v1/ping
+            </code>
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Status card */}
+        <div className="w-72 rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-xl flex flex-col items-center gap-4">
+          {status === "idle" && (
+            <span className="text-zinc-500 text-sm">Waiting…</span>
+          )}
+
+          {status === "loading" && (
+            <div className="flex flex-col items-center gap-3">
+              <div className="h-8 w-8 rounded-full border-2 border-zinc-600 border-t-indigo-500 animate-spin" />
+              <span className="text-zinc-400 text-sm">Pinging server…</span>
+            </div>
+          )}
+
+          {status === "success" && (
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-emerald-400 font-semibold text-lg capitalize">
+                  {message}
+                </span>
+              </div>
+              <span className="text-zinc-500 text-xs">Server is reachable</span>
+            </div>
+          )}
+
+          {status === "error" && (
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                <span className="text-red-400 font-semibold text-lg">
+                  Unreachable
+                </span>
+              </div>
+              <span className="text-zinc-500 text-xs break-all">{error}</span>
+            </div>
+          )}
+
+          {/* Retry button */}
+          {status !== "loading" && (
+            <button
+              onClick={ping}
+              className="mt-2 w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 active:bg-indigo-700"
+            >
+              {status === "idle" ? "Ping" : "Retry"}
+            </button>
+          )}
         </div>
+
+        {/* Endpoint label */}
+        <p className="text-zinc-600 text-xs">
+          Backend URL:{" "}
+          <span className="text-zinc-400">
+            {process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000"}
+          </span>
+        </p>
       </main>
     </div>
   );

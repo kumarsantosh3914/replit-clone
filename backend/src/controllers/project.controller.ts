@@ -7,19 +7,24 @@ import fs from "fs/promises";
 const execPromisified = util.promisify(child_process.exec);
 
 export const createProjectController = async (req: Request, res: Response, next: NextFunction) => {
-    // Create a unique id and then inside the project directory create a new folder with that id
-    const projectId = uuidv4();
-    console.log("New Project ID: ", projectId);
+    try {
+        // Create a unique id and then inside the project directory create a new folder with that id
+        const projectId = uuidv4();
+        console.log("New Project ID: ", projectId);
 
-    await fs.mkdir(`./projects/${projectId}`);
+        // recursive: true ensures the base `projects/` folder is created if it doesn't exist yet
+        await fs.mkdir(`./projects/${projectId}`, { recursive: true });
 
-    // After this call the npm create vite command in the newly created project folder
-    await execPromisified('npm create vite@latest sandbox -- --template react', {
-        cwd: `./projects/${projectId}`
-    });
+        // -y flag makes npm create vite run non-interactively (no prompts)
+        await execPromisified('npm create vite@latest sandbox -- --template react -y', {
+            cwd: `./projects/${projectId}`
+        });
 
-    res.status(200).json({
-        message: "Project created successfully",
-        data: projectId,
-    });
+        res.status(200).json({
+            message: "Project created successfully",
+            data: projectId,
+        });
+    } catch (error) {
+        next(error); // forwards to your genericErrorHandler middleware
+    }
 }

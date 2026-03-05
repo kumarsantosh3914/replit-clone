@@ -11,6 +11,7 @@ import { createServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import chokidar from 'chokidar';
 import { registerEditorHandlers } from './socketHandlers/editorHandler';
+import { handleContainerCreate } from './containers/handleContainerCreate';
 
 const app: Express = express();
 const server = createServer(app);
@@ -62,6 +63,20 @@ app.use(appErrorHandler);
 // Middleware to handle errors
 app.use(genericErrorHandler);
 
+const terminalNamespace = io.of('/terminal');
+terminalNamespace.on("connection", (socket: Socket) => {
+    logger.info(`Terminal connected`);
+
+    let projectId = socket.handshake.query['projectId'];
+
+    socket.on("disconnect", () => {
+        logger.info(`Terminal disconnected`);
+    });
+
+    handleContainerCreate(projectId, socket);
+})
+
 server.listen(serverConfig.PORT, async () => {
     logger.info(`Server is running on http://localhost:${serverConfig.PORT}`);
+    logger.info(`Current working directory: ${process.cwd()}`);
 })

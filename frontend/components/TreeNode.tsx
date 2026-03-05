@@ -3,6 +3,7 @@ import { ChevronRight, ChevronDown } from "lucide-react";
 import { FileIcon } from "./FileIcon";
 import { useEditorStore } from "@/store/editorStore";
 import { useEditorSocketStore } from "@/store/editorSocketStore";
+import { useFileContextMenuStore } from "@/store/fileContextMenuStore";
 
 interface TreeNodeProps {
     fileFolderData: any;
@@ -12,6 +13,7 @@ export const TreeNode = ({ fileFolderData }: TreeNodeProps) => {
     const [isOpen, setIsOpen] = useState(false);
     const { addFile, activeFilePath } = useEditorStore();
     const { editorSocket } = useEditorSocketStore();
+    const { setX, setY, setIsFolder, setPath, setIsOpen: setContextMenuIsOpen } = useFileContextMenuStore();
 
     if (!fileFolderData) return null;
 
@@ -22,6 +24,16 @@ export const TreeNode = ({ fileFolderData }: TreeNodeProps) => {
     };
     const isFolder = !!fileFolderData.children;
     const isActive = activeFilePath === fileFolderData.path;
+
+    const handleContextMenu = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setX(e.clientX);
+        setY(e.clientY);
+        setPath(fileFolderData.path);
+        setIsFolder(isFolder);
+        setContextMenuIsOpen(true);
+    };
 
     const handleDoubleClick = () => {
         if (!isFolder && editorSocket) {
@@ -37,6 +49,7 @@ export const TreeNode = ({ fileFolderData }: TreeNodeProps) => {
             {isFolder ? (
                 <div
                     onClick={() => setIsOpen(!isOpen)}
+                    onContextMenu={handleContextMenu}
                     className="flex items-center w-full gap-1.5 py-1 px-2 hover:bg-white/5 transition-colors rounded cursor-pointer group select-none"
                 >
                     <div className="flex-shrink-0 text-zinc-500 group-hover:text-zinc-300">
@@ -50,10 +63,11 @@ export const TreeNode = ({ fileFolderData }: TreeNodeProps) => {
             ) : (
                 <div
                     className={`flex items-center gap-2 py-1 px-3 ml-1 transition-all rounded cursor-pointer group select-none ${isActive
-                            ? "bg-white/10 text-white shadow-sm ring-1 ring-white/10"
-                            : "hover:bg-white/5 text-zinc-400"
+                        ? "bg-white/10 text-white shadow-sm ring-1 ring-white/10"
+                        : "hover:bg-white/5 text-zinc-400"
                         }`}
                     onDoubleClick={handleDoubleClick}
+                    onContextMenu={handleContextMenu}
                 >
                     <div className="flex-shrink-0 grayscale group-hover:grayscale-0 transition-all opacity-80 group-hover:opacity-100">
                         <FileIcon extension={computeExtension(fileFolderData.name)} name={fileFolderData.name} />
@@ -74,4 +88,5 @@ export const TreeNode = ({ fileFolderData }: TreeNodeProps) => {
         </div>
     );
 };
+
 

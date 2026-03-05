@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { useEditorStore } from '@/store/editorStore';
+import { useActiveFileTabStore } from '@/store/activeFileTabStore';
 
 export const CustomEditor = () => {
     const { activeFilePath } = useEditorStore();
+    const { activeFileTab } = useActiveFileTabStore();
     const [content, setContent] = useState<string>('// Select a file to view its contents\n');
 
     // We load Dracula from public/Dracula.json if available
@@ -17,29 +19,35 @@ export const CustomEditor = () => {
             .catch(err => console.error("Could not load Dracula theme:", err));
     };
 
-    // Mock content generation based on active path
-    useEffect(() => {
-        if (!activeFilePath) {
-            setContent('// No file selected\n// Click a file in the sidebar to open it.');
-            return;
+    const getLanguage = (filepath: string | null) => {
+        if (!filepath) return 'javascript';
+        const ext = filepath.split('.').pop()?.toLowerCase();
+        switch (ext) {
+            case 'ts':
+            case 'tsx':
+                return 'typescript';
+            case 'js':
+            case 'jsx':
+                return 'javascript';
+            case 'html':
+                return 'html';
+            case 'css':
+                return 'css';
+            case 'json':
+                return 'json';
+            default:
+                return 'javascript';
         }
-
-        // Temporary mock content until backend file getting is implemented
-        if (activeFilePath.endsWith('.tsx') || activeFilePath.endsWith('.ts')) {
-            setContent(`// Mock content for ${activeFilePath}\n\nexport const Example = () => {\n  return <div>Hello World</div>;\n};\n`);
-        } else {
-            setContent(`/* Mock content for ${activeFilePath} */\n`);
-        }
-    }, [activeFilePath]);
+    };
 
     return (
         <div className="flex-1 w-full h-[calc(100%-49px)] bg-[#1e1e1e]">
             {activeFilePath && (
                 <Editor
                     height="100%"
-                    defaultLanguage={activeFilePath.toLowerCase().endsWith('.tsx') || activeFilePath.toLowerCase().endsWith('.ts') ? 'typescript' : 'javascript'}
+                    language={getLanguage(activeFilePath)}
                     theme="vs-dark" // fallback if dracula fails to load
-                    value={content}
+                    value={activeFileTab?.value || content}
                     options={{
                         minimap: { enabled: true },
                         fontSize: 14,

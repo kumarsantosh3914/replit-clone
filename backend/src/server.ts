@@ -11,7 +11,10 @@ import { createServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import chokidar from 'chokidar';
 import { registerEditorHandlers } from './socketHandlers/editorHandler';
-import { handleContainerCreate } from './containers/handleContainerCreate';
+import { WebSocketServer } from 'ws';
+import { handleContainerCreate, handleTerminalCreation } from './containers/handleContainerCreate';
+import { IncomingMessage } from 'http';
+import { WebSocket } from 'ws';
 
 const app: Express = express();
 const server = createServer(app);
@@ -26,18 +29,17 @@ const editorNamespace = io.of('/editor');
 editorNamespace.on("connection", (socket: Socket) => {
     console.log("editor connected");
 
-    // somehow we will get the project id from the client
     let projectId = socket.handshake.query['projectId'];
     console.log("Project id received after connection", projectId);
 
     if (projectId) {
         var watcher = chokidar.watch(`./projects/${projectId}`, {
             ignored: (path) => path.includes("node_modules"),
-            persistent: true, // keeps the watcher in running state till the time app is running
+            persistent: true,
             awaitWriteFinish: {
-                stabilityThreshold: 2000, // Ensures stability of files before triggering event
+                stabilityThreshold: 2000,
             },
-            ignoreInitial: true, //. Ignores the intial files in the directory
+            ignoreInitial: true,
         });
 
         watcher.on("all", (event, path) => {
@@ -63,18 +65,26 @@ app.use(appErrorHandler);
 // Middleware to handle errors
 app.use(genericErrorHandler);
 
-const terminalNamespace = io.of('/terminal');
-terminalNamespace.on("connection", (socket: Socket) => {
+const webSocketForTerminal = new WebSocketServer({
+    noServer: true // we will handle the upgrade event
+});
+
+webSocketForTerminal.on("connection", (ws: WebSocket, req: IncomingMessage, container: any) => {
     logger.info(`Terminal connected`);
+    handleTerminalCreation(container, ws);
+});
 
-    let projectId = socket.handshake.query['projectId'];
+server.on("upgrade", (req, tcp, head) => {
+    const url = new URL(req.url || "", `http://${req.headers.host}`);
+    const isTerminal = url.pathname === "/terminal";
 
-    socket.on("disconnect", () => {
-        logger.info(`Terminal disconnected`);
-    });
+    if (isTerminal) {
+        const projectId = url.searchParams.get("projectId");
+        logger.info(`Project id received after connection: ${projectId}`);
 
-    handleContainerCreate(projectId, socket);
-})
+        handleContainerCreate(projectId, webSocketForTerminal, req, tcp, head);
+    }
+});
 
 server.listen(serverConfig.PORT, async () => {
     logger.info(`Server is running on http://localhost:${serverConfig.PORT}`);

@@ -3,9 +3,9 @@
 import { useEffect, useRef } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { AttachAddon } from "@xterm/addon-attach";
 import "@xterm/xterm/css/xterm.css";
 import { useTerminalSocketStore } from "@/store/terminalSocketStore";
-import { io } from "socket.io-client";
 
 interface TerminalProps {
     projectId: string;
@@ -15,7 +15,7 @@ export const Terminal = ({ projectId }: TerminalProps) => {
     const terminalRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<XTerm | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
-    const { setTerminalSocket, terminalSocket } = useTerminalSocketStore();
+    const { setTerminalSocket } = useTerminalSocketStore();
 
     useEffect(() => {
         if (!terminalRef.current) return;
@@ -58,21 +58,18 @@ export const Terminal = ({ projectId }: TerminalProps) => {
         xtermRef.current = term;
         fitAddonRef.current = fitAddon;
 
-        // Initialize Socket
-        const socketUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
-        const socket = io(`${socketUrl}/terminal`, {
-            query: { projectId },
-        });
+        // Initialize Raw WebSocket (using ws instead of socket.io for terminal)
+        const socketUrl = process.env.NEXT_PUBLIC_BACKEND_URL
+            ? process.env.NEXT_PUBLIC_BACKEND_URL.replace(/^http/, "ws")
+            : "ws://localhost:3000";
 
-        setTerminalSocket(socket);
+        const socket = new WebSocket(`${socketUrl}/terminal?projectId=${projectId}`);
 
-        socket.on("shell-output", (data: string) => {
-            term.write(data);
-        });
+        const attachAddon = new AttachAddon(socket);
+        term.loadAddon(attachAddon);
 
-        term.onData((data) => {
-            socket.emit("shell-input", data);
-        });
+        // Store the socket if needed (though AttachAddon handles most things)
+        setTerminalSocket(socket as any); // Type cast since we changed from Socket to WebSocket
 
         // Handle resizing
         const resizeObserver = new ResizeObserver(() => {
@@ -81,7 +78,7 @@ export const Terminal = ({ projectId }: TerminalProps) => {
         resizeObserver.observe(terminalRef.current);
 
         return () => {
-            socket.disconnect();
+            socket.close();
             setTerminalSocket(null);
             term.dispose();
             resizeObserver.disconnect();
